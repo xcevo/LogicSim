@@ -128,13 +128,20 @@ def simulate_uploaded(payload: Dict[str, Any] = Body(...)):
     cir.write_text(tb_text)
 
     try:
+        print(f"[DEBUG] Running ngspice on: {cir}")  # --- Debug point 1 ---
         ret = run_ngspice(cir, log, timeout_s=25)
+        print(f"[DEBUG] ngspice return code: {ret}")  # --- Debug point 2 ---
+
+        # Read log after execution for more debug info
+        log_text = log.read_text(errors="ignore") if log.exists() else ""
+        print(f"[DEBUG] ngspice log (first 20 lines):\n" + "\n".join(log_text.splitlines()[:20]))
+
         if ret != 0:
             return JSONResponse(
                 {
                     "error": f"ngspice exited with code {ret}",
                     "paths": {"run_dir": str(run_dir), "tb": str(cir), "log": str(log)},
-                    "log": log.read_text(errors="ignore"),
+                    "log": log_text,
                 },
                 status_code=500,
             )
@@ -153,12 +160,15 @@ def simulate_uploaded(payload: Dict[str, Any] = Body(...)):
         )
 
     if not out_csv.exists():
+        log_text = log.read_text(errors="ignore") if log.exists() else ""
+        print("[DEBUG] sim.csv not found! ngspice log below:\n" + log_text)  # --- Debug point 3 ---
         return JSONResponse(
             {"error": "simulation failed (no CSV)",
-             "paths": {"run_dir": str(run_dir), "tb": str(cir), "log": str(log)},
-             "log": log.read_text(errors="ignore")},
+            "paths": {"run_dir": str(run_dir), "tb": str(cir), "log": str(log)},
+            "log": log_text},
             status_code=500
         )
+
 
     vec_labels = [f"v({n})" for n in plot_nodes]
     try:
