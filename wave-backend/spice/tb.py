@@ -44,6 +44,9 @@ Cload {Y_NODE} 0 {CLOAD}
 .save time {SAVE_VECTORS}
 
 .control
+  set nograph
+  set noaskquit
+  set nomoremode
   set wr_singlescale
   set filetype=ascii
   run
@@ -249,6 +252,9 @@ def render_uploaded_tb(netlist_text: str,
 .save time {save_vecs}
 
 .control
+  set nograph
+  set noaskquit
+  set nomoremode
   set wr_singlescale
   set filetype=ascii
   run
