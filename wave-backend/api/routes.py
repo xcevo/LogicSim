@@ -115,16 +115,16 @@ def simulate_uploaded(payload: Dict[str, Any] = Body(...)):
         pin_drives=pin_drives,
         hints=hints,
     )
-    # --- PATCH START: force headless mode ---
-    if ".set nograph" not in tb_text:
-        # Insert it before .control if it exists
-        if ".control" in tb_text:
-            tb_text = tb_text.replace(".control", ".set nograph\n.control")
-        else:
-            # If there's no .control, just append it near the top
-            tb_text = ".set nograph\n" + tb_text
-    # --- PATCH END ---
-
+    # # --- PATCH START: force headless mode ---
+    # if ".set nograph" not in tb_text:
+    #     # Insert it before .control if it exists
+    #     if ".control" in tb_text:
+    #         tb_text = tb_text.replace(".control", ".set nograph\n.control")
+    #     else:
+    #         # If there's no .control, just append it near the top
+    #         tb_text = ".set nograph\n" + tb_text
+    # # --- PATCH END ---
+    print("[DEBUG] Rendered testbench tb.cir:\n" + tb_text) 
     cir.write_text(tb_text)
 
     try:
