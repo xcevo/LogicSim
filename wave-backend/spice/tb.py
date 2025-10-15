@@ -6,11 +6,10 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from core.config import TPL_PATH
-from core.utils import clamp
 from spice.parse import guess_roles, normalize_netlist_subckt_params
 
 
-# ---------------- Template writer (for prepare_tpl) ----------------
+# ---------------- Template writer (for /prepare_tpl) ----------------
 
 def write_tpl_from_netlist(netlist_text: str) -> None:
     """
@@ -28,7 +27,11 @@ def write_tpl_from_netlist(netlist_text: str) -> None:
 .param CLOAD={CLOAD}
 .temp {TEMP}
 
-VDD   VDD 0 {VDD}
+* Supplies
+VDD_SRC VDD 0 {VDD}
+VSS_SRC 0   0 0
+
+* Drive
 VIN   {A_NODE} 0 PULSE(0 {VDD} 0 {TR} {TF} {PW} {PER})
 
 * XU1 DUT: subckt + pins are placeholders (filled at /simulate time)
@@ -101,7 +104,7 @@ def render_tb(params: Dict[str, float],
     return text
 
 
-# ---------------- Rich testbench builder (for /simulate_uploaded) ----------------
+# ---------------- Helpers ----------------
 
 def _drive_line_for_pin(pin: str,
                         drive: Dict[str, Any],
@@ -111,20 +114,21 @@ def _drive_line_for_pin(pin: str,
                         pw: float,
                         per: float) -> str:
     """
-    User se aayi 'pin_drives' entry ko NGspice source line me convert karta hai.
-    Supported types:
-      - type: "pulse", fields: v1, v2, td(optional), tr(optional), tf(optional), pw(optional), per(optional)
-      - type: "dc" / "const", field: v
-      - type: "none"  (no source, node floating rahe — generally avoid)
-    Defaults fall back to global params (VDD/TR/TF/PW/PER).
+    'pin_drives' ko NGspice source line me convert karta hai.
+    Accepts either:
+      {type:"pulse", v1, v2, td, tr, tf, pw, per}
+    or   {kind:"pulse", ...}  (back-compat)
+      {type:"dc"/"const", v: <volt>} or {dc: <volt>}
+      {type:"none"}   -> no source (commented)
     """
-    t = str(drive.get("type", "pulse")).lower()
+    # normalize keys
+    t = (drive.get("type") or drive.get("kind") or "pulse").lower()
 
     if t in ("none", "off", "z"):
         return f"* VIN_{pin} {pin} 0 (none)"
 
     if t in ("dc", "const"):
-        v = float(drive.get("v", 0.0))
+        v = float(drive.get("v", drive.get("dc", 0.0)))
         return f"VIN_{pin} {pin} 0 {v}"
 
     # default: pulse
@@ -138,6 +142,8 @@ def _drive_line_for_pin(pin: str,
     return f"VIN_{pin} {pin} 0 PULSE({v1} {v2} {td} {tr_} {tf_} {pw_} {per_})"
 
 
+# ---------------- Rich testbench builder (for /simulate_uploaded) ----------------
+
 def render_uploaded_tb(netlist_text: str,
                        subckt_name: str,
                        pin_order: List[str],
@@ -149,18 +155,8 @@ def render_uploaded_tb(netlist_text: str,
                        hints: Optional[dict] = None) -> str:
     """
     Final TB jo ngspice ko jayega.
-    Args
-    - netlist_text: raw uploaded .cir
-    - subckt_name: chosen subckt
-    - pin_order: subckt ke pins jis order me header me hain (DUT instance ke liye)
-    - params: VDD, TEMP, TR, TF, PW, PER, CLOAD, TSTEP, TSTOP
-    - plot_nodes: list of nodes to wrdata
-    - out_csv: output path
-    - roles: { vdd, vss, outputs: [...], inputs: [...] } (optional; if None, guess_roles se bano)
-    - pin_drives: { PIN_NAME: {type: "pulse"/"dc"/"none", ...} } (optional; inputs/controls par apply hoga)
-    - hints: alias hints (optional)
     """
-    # 1) Normalize .SUBCKT headers so width/length like params pins na ban jayein
+    # 1) Normalize .SUBCKT headers so width/length jaise params pins na ban jayen
     netlist_text = normalize_netlist_subckt_params(netlist_text, hints=hints)
 
     # 2) Roles: supplies + IO
@@ -173,22 +169,27 @@ def render_uploaded_tb(netlist_text: str,
             "inputs": auto["inputs"],
         }
     else:
-        # ensure keys
         roles.setdefault("outputs", [])
         roles.setdefault("inputs", [])
 
     vdd_node = roles.get("vdd", "VDD")
     vss_node = roles.get("vss", "0")
-    outputs = roles.get("outputs", [])
-    inputs = roles.get("inputs", [])
 
-    # 3) Sources:
-    #    - Supply source
-    src_lines = [f"VDD_SRC {vdd_node} 0 {params['VDD']}"]
-    #    - For input pins, use user-specified drive or default pulse
+    # be safe: never treat supplies as inputs accidentally
+    supplies = {vdd_node, vss_node, "VDD", "VSS", "0", "GND"}
+    inputs = [p for p in roles.get("inputs", []) if p not in supplies]
+    outputs = [p for p in roles.get("outputs", []) if p not in supplies]
+
+    # 3) Sources
+    src_lines: List[str] = [
+        f"VDD_SRC {vdd_node} 0 {params['VDD']}",  # VDD tie
+        f"VSS_SRC {vss_node} 0 0",               # VSS tie  <<< IMPORTANT
+    ]
+
+    # user-specified drives (default: pulse 0->VDD)
     pin_drives = pin_drives or {}
     for p in inputs:
-        drv = pin_drives.get(p, {"type": "pulse"})  # default pulse(0->VDD)
+        drv = pin_drives.get(p, {"type": "pulse"})
         src_lines.append(
             _drive_line_for_pin(
                 pin=p,
@@ -201,17 +202,30 @@ def render_uploaded_tb(netlist_text: str,
             )
         )
 
-    # 4) Loads on outputs
-    load_lines = []
-    for outp in outputs or []:
-        load_lines.append(f"CLOAD_{outp} {outp} 0 {params['CLOAD']}")
+    # 4) Loads on outputs (at least one load so nodes aren't floating)
+    load_lines: List[str] = []
+    if outputs:
+        for outp in outputs:
+            load_lines.append(f"CLOAD_{outp} {outp} 0 {params['CLOAD']}")
+    else:
+        # fallback: pick first non-supply pin
+        fallback = next((p for p in pin_order if p not in supplies), None)
+        if fallback:
+            load_lines.append(f"CLOAD_{fallback} {fallback} 0 {params['CLOAD']}")
 
     # 5) DUT instance — strictly nodes only; params header me defaulted
     pinlist = " ".join(pin_order)
     xu_line = f"XU1 {pinlist} {subckt_name}"
 
     # 6) SAVE vectors
-    save_vecs = " ".join([f"v({n})" for n in plot_nodes])
+    # ensure we don't duplicate
+    uniq_nodes = []
+    seen = set()
+    for n in plot_nodes:
+        if n not in seen:
+            uniq_nodes.append(n)
+            seen.add(n)
+    save_vecs = " ".join([f"v({n})" for n in uniq_nodes])
 
     # 7) TB text
     return f"""

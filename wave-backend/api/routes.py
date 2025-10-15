@@ -3,15 +3,14 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI
+
 from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import JSONResponse
 
-from core.config import WORK_ROOT, TPL_PATH
+from core.config import TPL_PATH, new_run_dir, KEEP_RUNS
 from core.utils import norm_params, tail_warnings, run_ngspice
 from spice.parse import (
     parse_subckts_from_text,
@@ -20,10 +19,8 @@ from spice.parse import (
 )
 from spice.tb import render_uploaded_tb, render_tb, write_tpl_from_netlist
 
-# expose a router (NOT a FastAPI app)
+# Expose only the router here; FastAPI app is created in server.py
 router = APIRouter()
-app = FastAPI()
-app.include_router(router)
 
 
 @router.get("/health")
@@ -101,7 +98,8 @@ def simulate_uploaded(payload: Dict[str, Any] = Body(...)):
 
     params = norm_params(payload.get("params", {}))
 
-    run_dir = Path(tempfile.mkdtemp(prefix="runu_", dir=WORK_ROOT))
+    # Single, predictable run dir
+    run_dir = new_run_dir(prefix="u_")
     out_csv = run_dir / "sim.csv"
     cir = run_dir / "tb.cir"
     log = run_dir / "run.log"
@@ -157,15 +155,22 @@ def simulate_uploaded(payload: Dict[str, Any] = Body(...)):
     warns = tail_warnings(log.read_text(errors="ignore"))
     waves = {lbl: parsed[lbl] for lbl in vec_labels if lbl in parsed}
 
-    try:
-        shutil.rmtree(run_dir)
-    except Exception:
-        pass
+    # Clean up unless KEEP_RUNS=1
+    if not KEEP_RUNS:
+        try:
+            shutil.rmtree(run_dir)
+        except Exception:
+            pass
 
     return {
         "time": parsed["time"],
         "waveforms": waves,
-        "meta": {"points": len(parsed["time"]), "elapsed_ms": elapsed, "warnings": warns}
+        "meta": {
+            "points": len(parsed["time"]),
+            "elapsed_ms": elapsed,
+            "warnings": warns,
+            "run_dir": str(run_dir),
+        },
     }
 
 
@@ -182,7 +187,7 @@ def simulate(payload: Dict[str, Any] = Body(...)):
 
     params = norm_params(params_in)
 
-    run_dir = Path(tempfile.mkdtemp(prefix="run_", dir=WORK_ROOT))
+    run_dir = new_run_dir(prefix="")
     out_csv = run_dir / "sim.csv"
     cir = run_dir / "tb.cir"
     log = run_dir / "run.log"
@@ -210,13 +215,19 @@ def simulate(payload: Dict[str, Any] = Body(...)):
     log_txt = log.read_text(errors="ignore") if log.exists() else ""
     warns = tail_warnings(log_txt)
 
-    try:
-        shutil.rmtree(run_dir)
-    except Exception:
-        pass
+    if not KEEP_RUNS:
+        try:
+            shutil.rmtree(run_dir)
+        except Exception:
+            pass
 
     return {
         "time": data["time"],
         "waveforms": {"v(a)": data["v(a)"], "v(y)": data["v(y)"]},
-        "meta": {"points": len(data["time"]), "elapsed_ms": elapsed, "warnings": warns}
+        "meta": {
+            "points": len(data["time"]),
+            "elapsed_ms": elapsed,
+            "warnings": warns,
+            "run_dir": str(run_dir),
+        },
     }
