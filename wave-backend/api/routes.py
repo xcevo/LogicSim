@@ -115,10 +115,30 @@ def simulate_uploaded(payload: Dict[str, Any] = Body(...)):
         pin_drives=pin_drives,
         hints=hints,
     )
+    # --- PATCH START: force headless mode ---
+    if ".set nograph" not in tb_text:
+        # Insert it before .control if it exists
+        if ".control" in tb_text:
+            tb_text = tb_text.replace(".control", ".set nograph\n.control")
+        else:
+            # If there's no .control, just append it near the top
+            tb_text = ".set nograph\n" + tb_text
+    # --- PATCH END ---
+
     cir.write_text(tb_text)
 
     try:
-        _ = run_ngspice(cir, log, timeout_s=25)
+        ret = run_ngspice(cir, log, timeout_s=25)
+        if ret != 0:
+            return JSONResponse(
+                {
+                    "error": f"ngspice exited with code {ret}",
+                    "paths": {"run_dir": str(run_dir), "tb": str(cir), "log": str(log)},
+                    "log": log.read_text(errors="ignore"),
+                },
+                status_code=500,
+            )
+
     except subprocess.TimeoutExpired:
         return JSONResponse(
             {"error": "ngspice timeout (reduce TSTOP or increase TSTEP)",
