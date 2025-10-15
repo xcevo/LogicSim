@@ -36,7 +36,7 @@ export default function ControlsBar({
 }) {
   return (
     <header className="sticky top-0 z-40 bg-slate-950/75 backdrop-blur supports-[backdrop-filter]:bg-slate-950/60 border-b-[1.5px] border-emerald-500/50">
-      <div className="w-full py-3 pl-3 flex flex-wrap items-center gap-3 justify-start">
+      <div className="w-full py-3 flex flex-wrap items-center gap-3 justify-start">
         {/* LEFT GROUP: Upload → (filename) → Run → Auto → Model */}
         <div className="flex items-center gap-3">
           <UploadIconButton onFileText={onUploadFileText} />
@@ -89,7 +89,7 @@ export default function ControlsBar({
         </div>
 
         {/* RIGHT GROUP: globals */}
-        <div className="ml-auto flex items-center gap-4 flex-wrap">
+        <div className="ml-4 flex items-center gap-4 flex-wrap">
           <SmallNum label="VDD"   value={params.VDD}   onChange={(v)=>onChange("VDD", v)} />
           <SmallNum label="Cload" value={params.CLOAD} onChange={(v)=>onChange("CLOAD", v)} />
           <SmallNum label="TSTOP" value={params.TSTOP} onChange={(v)=>onChange("TSTOP", v)} />
