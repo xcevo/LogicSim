@@ -46,12 +46,11 @@ function Num({ value, onChange, placeholder, disabled, className = "" }) {
       disabled={disabled}
       className={[
         "h-9 rounded-lg bg-slate-900/70 border border-slate-700/70",
-        "px-2.5 text-[13px] outline-none font-mono tabular-nums",
+        "px-2 text-[13px] outline-none font-mono tabular-nums",
         "focus:ring-2 focus:ring-sky-600/40 focus:border-sky-600/40",
         disabled ? "opacity-50 cursor-not-allowed" : "hover:border-slate-600",
         "transition-colors",
-        // compact width for numeric fields
-        "w-20 md:w-24",
+        "w-14 md:w-16",
         className,
       ].join(" ")}
     />
@@ -118,37 +117,44 @@ export default function PinRoleTable({ pins, pinRoles, setPinRoles, pulseDefault
           {/* width guidance to keep layout steady */}
           <colgroup>
             <col className="w-32 md:w-40" />
-            <col className="w-36" />
-            <col className="w-36" />
-            <col className="w-24" />
-            {/* 7 pulse columns */}
-            <col className="w-24" />
-            <col className="w-24" />
-            <col className="w-24" />
-            <col className="w-24" />
-            <col className="w-24" />
-            <col className="w-24" />
-            <col className="w-24" />
+            <col className="w-32" />
+            <col className="w-32" />
+            <col className="w-18" />
+            {/* 7 pulse columns (narrower) */}
+            <col className="w-16" />
+            <col className="w-16" />
+            <col className="w-16" />
+            <col className="w-16" />
+            <col className="w-16" />
+            <col className="w-16" />
+            <col className="w-16" />
           </colgroup>
 
           {/* sticky header */}
           <thead className="bg-slate-950/70 backdrop-blur supports-[backdrop-filter]:bg-slate-950/50 sticky top-0 z-10 border-y-[1.5px] border-emerald-500/40">
-            <tr className="text-slate-300/90 uppercase tracking-wide text-xs">
+            {/* Row 1: section labels */}
+            <tr className="uppercase tracking-wide text-[11px] text-slate-300/90">
               <th className="text-left px-4 py-2">Pin</th>
               <th className="text-left px-2 py-2">Role</th>
               <th className="text-left px-2 py-2">Drive</th>
-              <th className="text-left px-2 py-2">DC</th>
-              <th className="text-left px-2 py-2" colSpan={7}>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-slate-300">Pulse</span>
-                  <span className="text-[11px] text-slate-400 normal-case tracking-normal">
-                    v1 · v2 · td · tr · tf · pw · per
-                  </span>
-                </div>
-              </th>
+             <th className="text-left px-2 py-2">DC</th>
+              <th className="text-left px-1 py-2" colSpan={7}>Pulse</th>
+            </tr>
+            {/* Row 2: individual pulse field labels */}
+            <tr className="uppercase tracking-wide text-[11px] text-slate-300/90">
+              <th className="px-4 py-1"></th>
+              <th className="px-2 py-1"></th>
+              <th className="px-2 py-1"></th>
+              <th className="px-2 py-1"></th>
+              <th className="text-left px-1 py-1">V1</th>
+              <th className="text-left px-1 py-1">V2</th>
+              <th className="text-left px-1 py-1">TD</th>
+              <th className="text-left px-1 py-1">TR</th>
+              <th className="text-left px-1 py-1">TF</th>
+              <th className="text-left px-1 py-1">PW</th>
+              <th className="text-left px-1 py-1">PER</th>
             </tr>
           </thead>
-
           <tbody>
             {rows.map((pin, i) => {
               const cfg = pinRoles[pin] || {};
@@ -189,6 +195,14 @@ export default function PinRoleTable({ pins, pinRoles, setPinRoles, pulseDefault
                           out
                         </span>
                       )}
+                          {role === "input" && (
+      <span
+        title="Input pin"
+        className="text-[10px] uppercase tracking-wide bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded"
+      >
+        in
+      </span>
+    )}
                     </div>
                   </td>
 
@@ -229,7 +243,7 @@ export default function PinRoleTable({ pins, pinRoles, setPinRoles, pulseDefault
 
                   {/* PULSE fields */}
                   {["v1", "v2", "td", "tr", "tf", "pw", "per"].map((k) => (
-                    <td key={k} className="px-2 py-2">
+                    <td key={k} className="px-[4px] py-2 text-left">
                       {showPulse ? (
                         <Num
                           value={p[k]}
