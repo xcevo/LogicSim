@@ -1,0 +1,44 @@
+.title Web ngspice demo (auto-generated)
+
+* --- Minimal toy models (demo) ---
+.model NMOS NMOS (LEVEL=1 KP=1.20e-4 VTO=0.45 LAMBDA=0.02)
+.model PMOS PMOS (LEVEL=1 KP=4.00e-5 VTO=-0.45 LAMBDA=0.02)
+
+* --- DUT: CMOS inverter (Y A VDD VSS) ---
+.subckt INV Y A VDD VSS
+Mp Y A VDD VDD PMOS W=2u L=0.18u
+Mn Y A VSS VSS NMOS W=1u L=0.18u
+.ends INV
+
+* --- Params from API ---
+.param VDD=1.0
+.param TR=1e-11
+.param TF=1e-11
+.param PW=5e-10
+.param PER=1e-09
+.param TD=0
+.param CLOAD=5e-15
+.temp 25.0
+
+* --- Stimulus / DUT / Load ---
+VDD  VDD  0   1.0
+VIN  A    0   PULSE(0 1.0 {TD} 1e-11 1e-11 5e-10 1e-09)
+XU1  y a  VDD  0  INV
+Cout y 0  5e-15
+
+* --- Analysis ---
+.options method=trap reltol=1e-3 maxord=2
+.tran 1e-12 3.0000000000000004e-09
+* Save only asked vectors (API will fill SAVE_VECTORS)
+.save time v(a) v(y)
+
+* --- Control: run + export CSV ---
+.control
+  set wr_singlescale
+  set filetype=ascii
+  run
+  wrdata /home/azeem/Desktop/wave-web/wave-backend/run_workspace/run_g0q8fe8g/sim.csv time v(a) v(y)
+  * No 'quit' so interactive runs also ok
+.endc
+
+.end

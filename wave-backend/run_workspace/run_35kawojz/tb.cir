@@ -1,0 +1,36 @@
+.title Web ngspice demo (auto-generated)
+
+.model NMOS NMOS (LEVEL=1 KP=1.20e-4 VTO=0.45 LAMBDA=0.02)
+.model PMOS PMOS (LEVEL=1 KP=4.00e-5 VTO=-0.45 LAMBDA=0.02)
+
+.subckt INV Y A VDD VSS
+Mp Y A VDD VDD PMOS W=2u L=0.18u
+Mn Y A VSS VSS NMOS W=1u L=0.18u
+.ends INV
+
+.param VDD=1.2
+.param TR=1e-11
+.param TF=1e-11
+.param PW=0.01
+.param PER=0.02
+.param TD=0
+.param CLOAD=5e-15
+.temp 25.0
+
+VDD  VDD  0   1.2
+VIN  A    0   PULSE(0 1.2 {TD} 1e-11 1e-11 0.01 0.02)
+XU1  y a  VDD  0  INV
+Cout y 0  5e-15
+
+.options method=trap reltol=1e-3 maxord=2
+.tran 1e-12 0.06
+.save time v(a) v(y)
+
+.control
+  set wr_singlescale
+  set filetype=ascii
+  run
+  wrdata /home/azeem/Desktop/wave-web/wave-backend/run_workspace/run_35kawojz/sim.csv time v(a) v(y)
+.endc
+
+.end

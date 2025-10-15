@@ -1,0 +1,28 @@
+# ====================================
+# Global ignores (common for all)
+# ====================================
+*.log
+*.pyc
+__pycache__/
+.DS_Store
+.env
+.env.production
+*venv
+
+# ====================================
+# Frontend: wave-web/vite-tailwind-starter-js
+# ====================================
+vite-tailwind-starter-js/node_modules/
+vite-tailwind-starter-js/dist/
+vite-tailwind-starter-js/.vite/
+vite-tailwind-starter-js/.cache/
+vite-tailwind-starter-js/.env
+vite-tailwind-starter-js/.env.production
+
+# ====================================
+# Backend: wave-web/wave-backend
+# ====================================
+wave-backend/venv/
+wave-backend/*.pyc
+wave-backend/.env
+wave-backend/.env.production
