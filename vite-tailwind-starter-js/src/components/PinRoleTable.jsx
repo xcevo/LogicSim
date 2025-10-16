@@ -112,7 +112,7 @@ export default function PinRoleTable({ pins, pinRoles, setPinRoles, pulseDefault
         <span className="font-medium">input</span> pins.
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto ">
         <table className="min-w-full text-sm">
           {/* width guidance to keep layout steady */}
           <colgroup>
